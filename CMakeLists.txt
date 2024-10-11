@@ -7,6 +7,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(leak_logic INTERFACE)
 target_include_directories(leak_logic INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+add_subdirectory(external/static-collections)
+include_directories(external/static-collections/include)
+
 option(ENABLE_TESTS "Enable tests" ON)
 
 if(ENABLE_TESTS)

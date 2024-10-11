@@ -1,3 +1,6 @@
-[submodule "googletest"]
+[submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest.git
+[submodule "external/static-collections"]
+	path = external/static-collections
+	url = https://github.com/leak-guard/static-collections
