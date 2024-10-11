@@ -4,8 +4,8 @@ project(leak_logic)
 set(CMAKE_CXX_STANDARD 20)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_library(leak_logic STATIC src/leak_logic.cpp)
-target_include_directories(leak_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_library(leak_logic INTERFACE)
+target_include_directories(leak_logic INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 option(ENABLE_TESTS "Enable tests" ON)
 

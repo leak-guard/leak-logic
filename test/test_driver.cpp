@@ -1,4 +1,4 @@
-#include "leak_logic.h"
+#include "leak_logic.hpp"
 #include <gtest/gtest.h>
 
 TEST(LeakLogicTest, BaseTest)
