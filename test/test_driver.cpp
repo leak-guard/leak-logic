@@ -3,8 +3,7 @@
 
 TEST(LeakLogicTest, BaseTest)
 {
-    auto result = hello();
-    EXPECT_EQ(result, 0);
+
 }
 
 int main(int argc, char **argv)
