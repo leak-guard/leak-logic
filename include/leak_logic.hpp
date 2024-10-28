@@ -144,12 +144,12 @@ namespace lg {
             return LeakPreventionAction(ActionType::NO_ACTION);
         }
 
-        void addCriterion(std::shared_ptr<LeakDetectionCriterion> criterion) {
+        void addCriterion(std::unique_ptr<LeakDetectionCriterion> criterion) {
             criteria.Append(std::move(criterion));
         }
 
     private:
-        StaticVector<std::shared_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA> criteria;
+        StaticVector<std::unique_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA> criteria;
     };
 
 

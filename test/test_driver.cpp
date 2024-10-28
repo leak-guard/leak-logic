@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 TEST(LeakLogicTest, ShouldDetectLeakWithFlowMeter) {
-    lg::LeakLogic logic = lg::LeakLogic::getInstance();
+    lg::LeakLogic logic;
     lg::StaticVector<bool, 256> probeStates;
 
     // Detect leak if flow rate exceeds 2 L/min for at least 1 minute
@@ -18,7 +18,7 @@ TEST(LeakLogicTest, ShouldDetectLeakWithFlowMeter) {
 }
 
 TEST(LeakLogicTest, ShouldNotDetectLeakIfFlowStops) {
-    lg::LeakLogic logic = lg::LeakLogic::getInstance();
+    lg::LeakLogic logic;
     lg::StaticVector<bool, 256> probeStates;
 
     // Detect leak if flow rate exceeds 2 L/min for at least 1 minute
