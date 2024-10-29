@@ -11,22 +11,41 @@
 
 namespace lg {
 
+    /**
+     * @brief Leak prevention action type.
+     */
     enum class ActionType {
         NO_ACTION,
         CLOSE_VALVE
     };
 
+    /**
+     * @brief Leak prevention action reason.
+     */
     enum class ActionReason {
         NONE,
         EXCEEDED_FLOW_RATE,
         LEAK_DETECTED_BY_PROBE
     };
 
+    /**
+     * @brief State of sensors used for leak detection.
+     */
     struct SensorState {
+        /**
+         * @brief Water flow rate from the flow meter, specified in liters per minute.
+         */
         float flowRate;
+
+        /**
+         * @brief Array of probe states - true if the probe detected a leak, false otherwise.
+         */
         StaticVector<bool, 256>& probeStates;
     };
 
+    /**
+     * @brief Action determined by the leak logic.
+     */
     class LeakPreventionAction {
     public:
         explicit LeakPreventionAction(
@@ -35,8 +54,19 @@ namespace lg {
             const uint8_t probeId = -1)
                 : actionType(actionType), reason(reason), probeId(probeId) {}
 
+        /**
+         * @brief The action type.
+         */
         [[nodiscard]] ActionType getActionType() const { return actionType; }
+
+        /**
+         * @brief The action reason.
+         */
         [[nodiscard]] ActionReason getActionReason() const { return reason; }
+
+        /**
+         * @brief The probe ID. Valid only if action reason is LEAK_DETECTED_BY_PROBE.
+         */
         [[nodiscard]] uint8_t getProbeId() const { return probeId; }
 
     private:
@@ -45,6 +75,9 @@ namespace lg {
         uint8_t probeId;
     };
 
+    /**
+     * @brief Abstract class for defining leak detection criteria.
+     */
     class LeakDetectionCriterion {
     public:
         virtual void update(const SensorState& sensorState, time_t elapsedTime) = 0;
@@ -54,8 +87,17 @@ namespace lg {
         virtual ~LeakDetectionCriterion() = default;
     };
 
+    /**
+     * @brief Detection of leaks based on a flow rate threshold and a duration.
+     *
+     * If the flow rate exceeds a specified value for a given duration, the CLOSE_VALVE action is taken.
+     */
     class TimeBasedFlowRateCriterion final : public LeakDetectionCriterion {
     public:
+        /**
+        * @param rateThreshold Flow rate threshold, in liters per minute.
+        * @param minDuration Minimum duration for exceeded flow rate, in seconds.
+        */
         TimeBasedFlowRateCriterion(const float rateThreshold, const time_t minDuration)
             : rateThreshold(rateThreshold), minDuration(minDuration),
               accumulatedTime(0), active(false) {}
@@ -89,6 +131,11 @@ namespace lg {
         bool active;
     };
 
+    /**
+     * @brief Detection of leaks based on flood signals from a specific probe.
+     *
+     * If the specified probe has emitted a signal, the CLOSE_VALVE action is taken.
+     */
     // Maybe we shouldn't have this? This is done for clarity, but it'd require separate criterion objects for each probe
     class ProbeLeakDetectionCriterion final : public LeakDetectionCriterion {
     public:
@@ -124,17 +171,29 @@ namespace lg {
      */
     class LeakLogic {
     public:
+        /**
+         * @brief Get the global logic singleton.
+         */
         static LeakLogic& getInstance() {
             static LeakLogic instance;
             return instance;
         }
 
+        /**
+         * @brief Update the leak logic with the current sensor state and time elapsed since the last update.
+         *
+         * @param sensorState The current sensor state.
+         * @param elapsedTime Time in seconds since the last update.
+         */
         void update(const SensorState& sensorState, const time_t elapsedTime) {
             for (const auto& criterion : criteria) {
                 criterion->update(sensorState, elapsedTime);
             }
         }
 
+        /**
+         * @brief Get the action determined by specified leak detection criteria.
+         */
         [[nodiscard]] LeakPreventionAction getAction() const {
             for (auto& criterion : criteria) {
                 if (const auto action = criterion->getAction()) {
@@ -144,6 +203,11 @@ namespace lg {
             return LeakPreventionAction(ActionType::NO_ACTION);
         }
 
+        /**
+         * @brief Add a criterion for leak detection.
+         *
+         * @param criterion A unique_ptr to a leak detection criterion object.
+         */
         void addCriterion(std::unique_ptr<LeakDetectionCriterion> criterion) {
             criteria.Append(std::move(criterion));
         }
