@@ -209,15 +209,25 @@ namespace lg {
          * @brief Add a criterion for leak detection.
          *
          * @param criterion A unique_ptr to a leak detection criterion object.
+         * @return Whether the criterion was added successfully.
          */
         bool addCriterion(std::unique_ptr<LeakDetectionCriterion> criterion) {
             return criteria.Append(std::move(criterion));
         }
 
+        /**
+         * @brief Gets an iterator for the leak detection criteria list.
+         */
         StaticVector<std::unique_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA>::Iterator getCriteria() {
             return criteria.begin();
         }
 
+        /**
+         * @brief Removes a criterion for leak detection from the list.
+         *
+         * @param index Index of the criterion to remove.
+         * @return Whether the criterion was removed successfully.
+         */
         bool removeCriterion(const uint8_t index) {
             return criteria.RemoveIndex(index);
         }
