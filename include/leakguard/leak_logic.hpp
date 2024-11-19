@@ -9,6 +9,8 @@
 
 #define LEAK_LOGIC_MAX_CRITERIA 10
 
+
+
 namespace lg {
 
     /**
@@ -208,8 +210,16 @@ namespace lg {
          *
          * @param criterion A unique_ptr to a leak detection criterion object.
          */
-        void addCriterion(std::unique_ptr<LeakDetectionCriterion> criterion) {
-            criteria.Append(std::move(criterion));
+        bool addCriterion(std::unique_ptr<LeakDetectionCriterion> criterion) {
+            return criteria.Append(std::move(criterion));
+        }
+
+        StaticVector<std::unique_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA>::Iterator getCriteria() {
+            return criteria.begin();
+        }
+
+        bool removeCriterion(const uint8_t index) {
+            return criteria.RemoveIndex(index);
         }
 
     private:
