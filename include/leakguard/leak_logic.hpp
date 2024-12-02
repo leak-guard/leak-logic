@@ -2,12 +2,15 @@
 #define LEAK_LOGIC_HPP
 
 #include "leakguard/staticvector.hpp"
+#include "leakguard/staticstring.hpp"
 
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <cmath>
 
 #define LEAK_LOGIC_MAX_CRITERIA 10
+#define LEAK_LOGIC_MAX_SERIALIZE_LENGTH 256
 
 
 
@@ -87,6 +90,9 @@ namespace lg {
         [[nodiscard]] virtual std::optional<LeakPreventionAction> getAction() const = 0;
 
         virtual ~LeakDetectionCriterion() = default;
+
+        [[nodiscard]] virtual StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const = 0;
+        static std::unique_ptr<LeakDetectionCriterion> deserialize(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized);
     };
 
     /**
@@ -103,6 +109,9 @@ namespace lg {
         TimeBasedFlowRateCriterion(const float rateThreshold, const time_t minDuration)
             : rateThreshold(rateThreshold), minDuration(minDuration),
               accumulatedTime(0), active(false) {}
+
+        [[nodiscard]] float getRateThreshold() const { return rateThreshold; }
+        [[nodiscard]] time_t getMinDuration() const { return minDuration; }
 
         void update(const SensorState& sensorState, const time_t elapsedTime) override {
             if (sensorState.flowRate >= rateThreshold) {
@@ -125,6 +134,52 @@ namespace lg {
             return std::nullopt;
         }
 
+        [[nodiscard]] StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const override {
+            StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialized;
+            serialized += StaticString<8>("T,");
+            serialized += StaticString<8>::Of(static_cast<int>(rateThreshold * 100));
+            serialized += StaticString<1>(",");
+            serialized += StaticString<8>::Of(static_cast<int>(minDuration));
+            serialized += StaticString<1>(",");
+
+            return serialized;
+        }
+
+        static std::unique_ptr<TimeBasedFlowRateCriterion> deserialize(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized) {
+            StaticString<16> buffer;
+
+            enum BufferState { TYPE, RATE_THRESH, MIN_DURATION };
+            BufferState state = TYPE;
+
+            float rateThreshold = 0.0f;
+            time_t minDuration = 0;
+
+            for (int i = 0; i < serialized.GetLength(); i++) {
+                const char c = serialized[i];
+                buffer += c;
+
+                if (c == ',') {
+                    buffer.Truncate(buffer.GetLength() - 1);
+                    switch (state) {
+                        case TYPE:
+                            state = RATE_THRESH;
+                        break;
+                        case RATE_THRESH:
+                            rateThreshold = static_cast<float>(buffer.ToInteger<int>()) / 100.0f;
+                            state = MIN_DURATION;
+                        break;
+                        case MIN_DURATION:
+                            minDuration = buffer.ToInteger<int>();
+                            auto criterion = std::make_unique<TimeBasedFlowRateCriterion>(rateThreshold, minDuration);
+                            return criterion;
+                    }
+                    buffer.Clear();
+                }
+            }
+
+            return nullptr;
+        }
+
     private:
         float rateThreshold;
         time_t minDuration;
@@ -142,6 +197,8 @@ namespace lg {
     class ProbeLeakDetectionCriterion final : public LeakDetectionCriterion {
     public:
         explicit ProbeLeakDetectionCriterion(const uint8_t probeId) : probeId(probeId) {}
+
+        [[nodiscard]] int getProbeId() const { return probeId; }
 
         void update(const SensorState& sensorState, const time_t elapsedTime) override {
             leakDetected = false;
@@ -161,6 +218,44 @@ namespace lg {
                 );
             }
             return std::nullopt;
+        }
+
+        [[nodiscard]] StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const override {
+            StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialized;
+            serialized += StaticString<8>("P,");
+            serialized += StaticString<8>::Of(probeId);
+            serialized += StaticString<1>(",");
+
+            return serialized;
+        }
+
+        static std::unique_ptr<ProbeLeakDetectionCriterion> deserialize(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized) {
+            StaticString<16> buffer;
+
+            enum BufferState { TYPE, PROBE_ID };
+            BufferState state = TYPE;
+
+            int probeId = 0;
+
+            for (int i = 0; i < serialized.GetLength(); i++) {
+                const char c = serialized[i];
+                buffer += c;
+
+                if (c == ',') {
+                    buffer.Truncate(buffer.GetLength() - 1);
+                    switch (state) {
+                        case TYPE:
+                            state = PROBE_ID;
+                        break;
+                        case PROBE_ID:
+                            probeId = buffer.ToInteger<int>();
+                            return std::make_unique<ProbeLeakDetectionCriterion>(probeId);
+                    }
+                    buffer.Clear();
+                }
+            }
+
+            return nullptr;
         }
 
     private:
@@ -231,6 +326,41 @@ namespace lg {
         bool removeCriterion(const uint8_t index) {
             return criteria.RemoveIndex(index);
         }
+
+        [[nodiscard]] StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const {
+            StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialized;
+
+            for (int i = 0; i < criteria.GetSize(); i++) {
+                serialized += criteria[i]->serialize();
+                serialized += StaticString<1>("|");
+            }
+
+            return serialized;
+        }
+
+        void loadFromString(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized) {
+            StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> buffer;
+            for (int i = 0; i < serialized.GetLength(); i++) {
+                const char c = serialized[i];
+                buffer += c;
+
+                if (c == '|') {
+                    buffer.Truncate(buffer.GetLength() - 1);
+                    switch (buffer[0]) {
+                        case 'T':
+                            addCriterion(TimeBasedFlowRateCriterion::deserialize(buffer));
+                        break;
+                        case 'P':
+                            addCriterion(ProbeLeakDetectionCriterion::deserialize(buffer));
+                        break;
+                        default:
+                            break;
+                    }
+                    buffer.Clear();
+                }
+            }
+        }
+
 
     private:
         StaticVector<std::unique_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA> criteria;
