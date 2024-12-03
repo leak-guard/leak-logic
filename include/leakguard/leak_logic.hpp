@@ -46,7 +46,7 @@ namespace lg {
         /**
          * @brief Array of probe states - true if the probe detected a leak, false otherwise.
          */
-        StaticVector<bool, 256>& probeStates;
+        StaticVector<bool, 256> probeStates;
     };
 
     /**
