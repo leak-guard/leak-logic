@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <cmath>
+#include <ctime>
 
 #define LEAK_LOGIC_MAX_CRITERIA 10
 #define LEAK_LOGIC_MAX_SERIALIZE_LENGTH 256
