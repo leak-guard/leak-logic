@@ -328,6 +328,11 @@ namespace lg {
             return criteria.RemoveIndex(index);
         }
 
+        void clearCriteria()
+        {
+            criteria.Clear();
+        }
+
         [[nodiscard]] StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const {
             StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialized;
 
