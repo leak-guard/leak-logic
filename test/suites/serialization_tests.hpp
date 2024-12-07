@@ -15,31 +15,18 @@ TEST(SerializationTests, ShouldDeserializeTimeBasedFlowCriterion) {
     ASSERT_EQ(deserialized->getMinDuration(), 1234);
 }
 
-TEST(SerializationTests, ShouldSerializeProbeLeakDetectionCriterion) {
-    const lg::ProbeLeakDetectionCriterion criterion(1);
-    const auto serialized = criterion.serialize();
-    ASSERT_STREQ(serialized.ToCStr(), "P,1,");
-}
-
-TEST(SerializationTests, ShouldDeserializeProbeLeakDetectionCriterion) {
-    const lg::StaticString<16> serialized("P,123,");
-    const auto deserialized = lg::ProbeLeakDetectionCriterion::deserialize(serialized);
-    ASSERT_EQ(deserialized->getProbeId(), 123);
-}
-
 TEST(SerializationTests, ShouldSerializeMultipleCriteria) {
     lg::LeakLogic logic;
     logic.addCriterion(std::make_unique<lg::TimeBasedFlowRateCriterion>(2.0f, 60));
-    logic.addCriterion(std::make_unique<lg::ProbeLeakDetectionCriterion>(42));
-    logic.addCriterion(std::make_unique<lg::ProbeLeakDetectionCriterion>(69));
+    logic.addCriterion(std::make_unique<lg::TimeBasedFlowRateCriterion>(5.0f, 120));
     const auto serialized = logic.serialize();
 
-    ASSERT_STREQ(serialized.ToCStr(), "T,200,60,|P,42,|P,69,|");
+    ASSERT_STREQ(serialized.ToCStr(), "T,200,60,|T,500,120,|");
 }
 
 TEST(SerializationTests, ShouldDeserializeMultipleCriteria) {
     lg::LeakLogic logic;
-    logic.loadFromString("T,200,60,|P,42,|P,69,|");
+    logic.loadFromString("T,200,60,|T,500,120,|");
     const auto serialized = logic.serialize();
-    ASSERT_STREQ(serialized.ToCStr(), "T,200,60,|P,42,|P,69,|");
+    ASSERT_STREQ(serialized.ToCStr(), "T,200,60,|T,500,120,|");
 }

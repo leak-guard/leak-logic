@@ -46,7 +46,7 @@ namespace lg {
         /**
          * @brief Array of probe states - true if the probe detected a leak, false otherwise.
          */
-        StaticVector<bool, 256> probeStates;
+        std::array<bool, 256> probeStates;
     };
 
     /**
@@ -194,18 +194,15 @@ namespace lg {
      *
      * If the specified probe has emitted a signal, the CLOSE_VALVE action is taken.
      */
-    // Maybe we shouldn't have this? This is done for clarity, but it'd require separate criterion objects for each probe
     class ProbeLeakDetectionCriterion final : public LeakDetectionCriterion {
     public:
-        explicit ProbeLeakDetectionCriterion(const uint8_t probeId) : probeId(probeId) {}
-
-        [[nodiscard]] int getProbeId() const { return probeId; }
-
         void update(const SensorState& sensorState, const time_t elapsedTime) override {
             leakDetected = false;
-            for (const auto state : sensorState.probeStates) {
-                if (state) {
+            for (size_t i = 0; i < sensorState.probeStates.size(); i++) {
+                if (sensorState.probeStates[i]) {
+                    probeId = i;
                     leakDetected = true;
+                    break;
                 }
             }
         }
@@ -224,43 +221,16 @@ namespace lg {
         [[nodiscard]] StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialize() const override {
             StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> serialized;
             serialized += StaticString<8>("P,");
-            serialized += StaticString<8>::Of(probeId);
-            serialized += StaticString<1>(",");
 
             return serialized;
         }
 
         static std::unique_ptr<ProbeLeakDetectionCriterion> deserialize(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized) {
-            StaticString<16> buffer;
-
-            enum BufferState { TYPE, PROBE_ID };
-            BufferState state = TYPE;
-
-            int probeId = 0;
-
-            for (int i = 0; i < serialized.GetLength(); i++) {
-                const char c = serialized[i];
-                buffer += c;
-
-                if (c == ',') {
-                    buffer.Truncate(buffer.GetLength() - 1);
-                    switch (state) {
-                        case TYPE:
-                            state = PROBE_ID;
-                        break;
-                        case PROBE_ID:
-                            probeId = buffer.ToInteger<int>();
-                            return std::make_unique<ProbeLeakDetectionCriterion>(probeId);
-                    }
-                    buffer.Clear();
-                }
-            }
-
-            return nullptr;
+            return std::make_unique<ProbeLeakDetectionCriterion>(); // Ehh, whatever
         }
 
     private:
-        uint8_t probeId;
+        uint8_t probeId {};
         bool leakDetected = false;
     };
 
@@ -287,6 +257,8 @@ namespace lg {
             for (const auto& criterion : criteria) {
                 criterion->update(sensorState, elapsedTime);
             }
+
+            probeLeakCriterion.update(sensorState, elapsedTime);
         }
 
         /**
@@ -298,6 +270,10 @@ namespace lg {
                     return *action;
                 }
             }
+
+            if (const auto probeAction = probeLeakCriterion.getAction())
+                return probeAction.value();
+
             return LeakPreventionAction(ActionType::NO_ACTION);
         }
 
@@ -328,8 +304,7 @@ namespace lg {
             return criteria.RemoveIndex(index);
         }
 
-        void clearCriteria()
-        {
+        void clearCriteria() {
             criteria.Clear();
         }
 
@@ -356,9 +331,6 @@ namespace lg {
                         case 'T':
                             addCriterion(TimeBasedFlowRateCriterion::deserialize(buffer));
                         break;
-                        case 'P':
-                            addCriterion(ProbeLeakDetectionCriterion::deserialize(buffer));
-                        break;
                         default:
                             break;
                     }
@@ -370,6 +342,7 @@ namespace lg {
 
     private:
         StaticVector<std::unique_ptr<LeakDetectionCriterion>, LEAK_LOGIC_MAX_CRITERIA> criteria;
+        ProbeLeakDetectionCriterion probeLeakCriterion;
     };
 
 
