@@ -320,6 +320,8 @@ namespace lg {
         }
 
         void loadFromString(const StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH>& serialized) {
+            clearCriteria();
+
             StaticString<LEAK_LOGIC_MAX_SERIALIZE_LENGTH> buffer;
             for (int i = 0; i < serialized.GetLength(); i++) {
                 const char c = serialized[i];
